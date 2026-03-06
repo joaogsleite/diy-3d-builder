@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { ContactShadows, OrbitControls } from '@react-three/drei'
 import ProductInstance from './components/products/ProductInstance'
@@ -6,22 +6,38 @@ import Glued from './components/joints/Glued'
 import ScrewedJoint from './components/joints/ScrewedJoint'
 import { buildBedAssembly } from './model/bedModel'
 
+const UNIT_PRICE_EUR_BY_CODE = {
+  RIPA_2400x32x32: 5.25,
+  RIPA_2400x48x13: 3.65,
+  RIPA_900x56x56: 8.19,
+  TABUA_1250x200x18: 7.89,
+  SCREWS: 11.19,
+  GLUE: 9.69,
+}
+
+function formatEuro(value) {
+  return new Intl.NumberFormat('pt-PT', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(value)
+}
+
 function computePurchaseList(parts, joints) {
   const linearProducts = {
     RIPA_2400x32x32: {
       label: 'Ripa de madeira 2400x32x32',
       stockLengthMm: 2400,
-      link: 'https://www.leroymerlin.pt/search?q=ripa%20madeira%202400x32x32',
+      link: 'https://www.leroymerlin.pt/produtos/ripa-de-madeira-tosca-casquinha-branca-32x32x2400mm-14133014.html',
     },
     RIPA_2400x48x13: {
       label: 'Ripa de madeira 2400x48x13',
       stockLengthMm: 2400,
-      link: 'https://www.leroymerlin.pt/search?q=ripa%20madeira%202400x48x13',
+      link: 'https://www.leroymerlin.pt/produtos/ripa-de-madeira-tosca-casquinha-branca-13x48x2400mm-14131502.html',
     },
     RIPA_900x56x56: {
       label: 'Ripa de madeira 900x56x56',
       stockLengthMm: 900,
-      link: 'https://www.leroymerlin.pt/search?q=ripa%20madeira%20900x56x56',
+      link: 'https://www.leroymerlin.pt/produtos/ripa-de-madeira-aplainada-casquinha-branca-56x56x900mm-14131586.html',
     },
   }
 
@@ -38,7 +54,8 @@ function computePurchaseList(parts, joints) {
       label: def.label,
       quantity,
       detail: `${cuts.length} cortes / ${Math.round(totalCutLength)} mm total`,
-        link: def.link,
+      link: def.link,
+      unitPriceEur: UNIT_PRICE_EUR_BY_CODE[productCode],
     })
   })
 
@@ -49,7 +66,8 @@ function computePurchaseList(parts, joints) {
       label: 'Tabua de madeira 1250x200x18',
       quantity: boardCuts.length,
       detail: `${boardCuts.length} cortes principais`,
-        link: 'https://www.leroymerlin.pt/search?q=tabua%20madeira%201250x200x18',
+      link: 'https://www.leroymerlin.pt/produtos/ripa-de-madeira-aplainado-18x200x1250-mm-77078723.html',
+      unitPriceEur: UNIT_PRICE_EUR_BY_CODE.TABUA_1250x200x18,
     })
   }
 
@@ -63,7 +81,8 @@ function computePurchaseList(parts, joints) {
       label: 'Parafusos para madeira 4x40 mm',
       quantity: 1,
       detail: `min. ${screwCount} unid (1 caixa)`,
-        link: 'https://www.leroymerlin.pt/search?q=parafusos%20madeira%204x40',
+      link: 'https://www.leroymerlin.pt/produtos/500-parafusos-standers-plano-oval-pz-cromado-4x40-82231879.html',
+      unitPriceEur: UNIT_PRICE_EUR_BY_CODE.SCREWS,
     })
   }
 
@@ -74,18 +93,22 @@ function computePurchaseList(parts, joints) {
       label: 'Cola de madeira D3',
       quantity: 1,
       detail: '1 frasco (~250 g)',
-        link: 'https://www.leroymerlin.pt/search?q=cola%20madeira%20D3',
+      link: 'https://www.leroymerlin.pt/produtos/cola-branca-para-madeira-uhu-resist-agua-750gr-82010107.html',
+      unitPriceEur: UNIT_PRICE_EUR_BY_CODE.GLUE,
     })
   }
 
   return list
 }
 
-function BedScene({ parts, joints, partById, selectedId, onSelect, onDeselect }) {
+function BedScene({ parts, joints, partById, selectedId, onSelect, onDeselect, isMobile }) {
+  const cameraPosition = isMobile ? [0, 1.08, 2.05] : [2.2, 1.1, 1.95]
+  const orbitTarget = isMobile ? [0, 0.18, 0] : [0.28, 0.18, 0]
+
   return (
     <Canvas
       shadows
-      camera={{ position: [2.2, 1.1, 1.95], fov: 48, near: 0.1, far: 30 }}
+      camera={{ position: cameraPosition, fov: 48, near: 0.1, far: 30 }}
       onPointerMissed={onDeselect}
     >
       <color attach="background" args={['#eaf4ff']} />
@@ -127,7 +150,7 @@ function BedScene({ parts, joints, partById, selectedId, onSelect, onDeselect })
       })}
 
       <OrbitControls
-        target={[0.28, 0.18, 0]}
+        target={orbitTarget}
         minPolarAngle={0.05}
         maxPolarAngle={Math.PI - 0.05}
         minDistance={0.7}
@@ -143,16 +166,28 @@ function App() {
   const joints = assembly.joints
   const byId = useMemo(() => new Map(parts.map((part) => [part.id, part])), [parts])
   const purchaseList = useMemo(() => computePurchaseList(parts, joints), [parts, joints])
+  const purchaseTotalEur = useMemo(
+    () => purchaseList.reduce((sum, item) => sum + (item.unitPriceEur ?? 0) * item.quantity, 0),
+    [purchaseList],
+  )
+  const missingPriceCount = useMemo(
+    () => purchaseList.filter((item) => item.unitPriceEur == null).length,
+    [purchaseList],
+  )
   const [selectedId, setSelectedId] = useState(null)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const selected = selectedId ? byId.get(selectedId) : null
 
   return (
     <div className="relative min-h-screen bg-[radial-gradient(circle_at_20%_10%,#efe6d6_0%,#d9cbb6_45%,#c5b6a0_100%)] text-[#2c2117]">
-      <main className="relative h-[68vh] overflow-hidden md:h-screen">
-        <div className="pointer-events-none absolute bottom-3 left-3 z-10 text-[0.68rem] text-[#4b5d73b0]">
-          Arrasta para orbitar, scroll para zoom, clique para selecionar.
-        </div>
+      <main className="relative h-[54vh] overflow-hidden md:h-screen">
         <div className="h-full w-full">
           <BedScene
             parts={parts}
@@ -161,11 +196,12 @@ function App() {
             selectedId={selectedId}
             onSelect={setSelectedId}
             onDeselect={() => setSelectedId(null)}
+            isMobile={isMobile}
           />
         </div>
       </main>
 
-      <aside className="max-h-[40vh] overflow-auto border-t border-[#34495e33] bg-[#f7fbfff2] px-3 py-3 md:absolute md:right-0 md:top-0 md:z-20 md:h-screen md:w-65 md:max-h-none md:border-l md:border-t-0 md:bg-[#f7fbff66] md:backdrop-blur-[2px]">
+      <aside className="max-h-[54vh] overflow-auto border-t border-[#34495e33] bg-[#f7fbfff2] px-3 py-3 md:absolute md:right-0 md:top-0 md:z-20 md:h-screen md:w-65 md:max-h-none md:border-l md:border-t-0 md:bg-[#f7fbff66] md:backdrop-blur-[2px]">
         <section className="px-0.5 py-0.5">
           <h3 className="m-0 text-[0.92rem] font-semibold text-[#304357]">Peca Selecionada</h3>
           {selected ? (
@@ -195,8 +231,23 @@ function App() {
                 {item.quantity}x {item.label}
               </a>
               <p className="m-0 mt-0.5 text-[0.72rem] text-[#62788f]">{item.detail}</p>
+              <p className="m-0 mt-0.5 text-[0.72rem] text-[#4d6379]">
+                {item.unitPriceEur == null
+                  ? 'Preco por definir'
+                  : `${formatEuro(item.unitPriceEur)} / unid. - Subtotal: ${formatEuro(item.unitPriceEur * item.quantity)}`}
+              </p>
             </div>
           ))}
+        </div>
+        <div className="mt-2 rounded-lg border border-[#6d839833] bg-[#eef4fb] px-2 py-1.5">
+          <p className="m-0 text-[0.78rem] font-semibold text-[#2d3d4c]">
+            Total estimado: {formatEuro(purchaseTotalEur)}
+          </p>
+          {missingPriceCount > 0 ? (
+            <p className="m-0 mt-0.5 text-[0.7rem] text-[#62788f]">
+              Faltam definir precos em {missingPriceCount} item(ns).
+            </p>
+          ) : null}
         </div>
       </aside>
     </div>
