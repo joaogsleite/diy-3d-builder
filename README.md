@@ -1,16 +1,59 @@
-# React + Vite
+# DIY 3D Builder
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interactive 3D prototype for planning a custom wooden bed build.
 
-Currently, two official plugins are available:
+The app renders a complete bed assembly in 3D, including parts, joints, and an auto-generated purchase list based on cut lengths and joinery.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## What This Project Does
 
-## React Compiler
+- Renders a 3D bed assembly using React Three Fiber.
+- Lets you orbit, zoom, and click parts to inspect details.
+- Models different part types (rails, slats, boards, legs, reference mattress).
+- Visualizes glued and screwed joints.
+- Generates a "parts to buy" list from the modeled cuts.
+- Links each purchasable item to a relevant Leroy Merlin search.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+- React 19
+- Vite 7
+- Three.js
+- @react-three/fiber
+- @react-three/drei
+- Tailwind CSS (via @tailwindcss/vite)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Project Structure
+
+- `src/App.jsx`: main scene, UI panels, selection logic, purchase list generation.
+- `src/model/bedModel.js`: parametric model generator (`buildBedAssembly`) with parts and joints.
+- `src/components/products/`: 3D product meshes and product-specific rendering helpers.
+- `src/components/joints/`: glued and screwed joint visual components.
+
+## Run Locally
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Open `http://localhost:5173`.
+
+## Build
+
+```bash
+pnpm build
+pnpm preview
+```
+
+## Deploy (GitHub Pages)
+
+This repository is configured to deploy automatically with GitHub Actions on every push to `main`.
+
+- Workflow file: `.github/workflows/deploy.yml`
+- Production base path: `/diy-3d-builder/` (configured in `vite.config.js`)
+- Expected site URL: `https://joaogsleite.github.io/diy-3d-builder/`
+
+## Notes
+
+- Dimensions and labels in the model are currently tailored for this specific bed/carpentry use case.
+- Product names and links are practical references, not an official bill of materials.
